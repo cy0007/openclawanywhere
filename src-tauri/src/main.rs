@@ -41,7 +41,10 @@ fn main() {
                 .build(app)?;
 
             // ── 启动 Sidecar (Node.js 网关) ──
-            sidecar::spawn_gateway(app.handle())?;
+            match sidecar::spawn_gateway(app.handle()) {
+                Ok(_) => println!("[App] Sidecar 启动成功"),
+                Err(e) => eprintln!("[App] Sidecar 启动失败: {e}"),
+            }
 
             Ok(())
         })
