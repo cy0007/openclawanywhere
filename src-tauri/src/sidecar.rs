@@ -20,11 +20,16 @@ pub fn spawn_gateway(app: &AppHandle) -> Result<CommandChild, Box<dyn std::error
                     let text = String::from_utf8_lossy(&line);
                     let trimmed = text.trim();
 
-                    // 解析结构化事件并转发到 WebView
-                    if trimmed.starts_with('{') && trimmed.contains("\"event\"") {
-                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed) {
-                            if val.get("event").and_then(|e| e.as_str()) == Some("tunnel_ready") {
-                                let _ = app_handle.emit("tunnel_ready", trimmed.to_string());
+                    // 尝试从行中提取 JSON 事件
+                    if let Some(json_start) = trimmed.find('{') {
+                        let json_str = &trimmed[json_start..];
+                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
+                            if let Some(evt) = val.get("event").and_then(|e| e.as_str()) {
+                                println!("[Sidecar] 收到事件: {}", evt);
+                                if evt == "tunnel_ready" {
+                                    let _ = app_handle.emit("tunnel_ready", json_str.to_string());
+                                    println!("[Sidecar] 已转发 tunnel_ready 到 WebView");
+                                }
                             }
                         }
                     }

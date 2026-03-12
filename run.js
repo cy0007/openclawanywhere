@@ -26,21 +26,29 @@ const tunnel = new TunnelManager();
 tunnel.on('tunnel_ready', (tunnelUrl) => {
   const fullUrl = `${tunnelUrl}/?token=${sessionToken}`;
 
-  // 输出结构化事件供 Tauri sidecar 解析
-  console.log(JSON.stringify({ event: 'tunnel_ready', tunnelUrl, fullUrl }));
+  // 输出结构化事件供 Tauri sidecar 解析（单独一行，确保不被其他输出干扰）
+  process.stdout.write('\n');
+  process.stdout.write(JSON.stringify({ event: 'tunnel_ready', tunnelUrl, fullUrl }) + '\n');
 
-  // CLI 模式下延迟打印二维码（Tauri 模式下由桌面 UI 渲染）
-  setTimeout(() => {
-    console.log('\n' + '='.repeat(55));
-    console.log('  OpenClawAnywhere 宿主端已就绪');
-    console.log(`  公网地址：${tunnelUrl}`);
-    console.log(`  鉴权地址：${fullUrl}`);
-    console.log('='.repeat(55));
+  // 检测是否在 Tauri sidecar 环境（pkg 打包后 execPath 包含 openclaw-gateway）
+  const isTauri = process.execPath.includes('openclaw-gateway');
 
-    qrcode.generate(fullUrl, { small: true }, (code) => {
-      console.log(code);
-    });
-  }, 2000);
+  if (!isTauri) {
+    // CLI 模式下打印二维码
+    setTimeout(() => {
+      console.log('\n' + '='.repeat(55));
+      console.log('  OpenClawAnywhere 宿主端已就绪');
+      console.log(`  公网地址：${tunnelUrl}`);
+      console.log(`  鉴权地址：${fullUrl}`);
+      console.log('='.repeat(55));
+
+      qrcode.generate(fullUrl, { small: true }, (code) => {
+        console.log(code);
+      });
+    }, 2000);
+  } else {
+    console.log('[run] 隧道已就绪，二维码将在桌面窗口中显示');
+  }
 });
 
 tunnel.on('error', (err) => {
