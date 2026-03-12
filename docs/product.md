@@ -33,7 +33,7 @@
 *   **内网穿透**：Cloudflared (Quick Tunnel mode)。
 *   **前端网页**：HTML 5 + TailwindCSS (轻量快速) + marked. Js (渲染) + socket. Io-client。
 
-## 5. 商业路线图 (Roadmap)
+## 5. 路线图 (Roadmap)
 
 ### 第一阶段：MVP 验证 (Weeks 1-2)
 *   完成 Node. Js 服务端的“穿透+鉴权+WS 转发”闭环。

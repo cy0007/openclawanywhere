@@ -6,6 +6,7 @@
   "main": "run.js",
   "scripts": {
     "start": "node run.js",
+    "tauri": "tauri",
     "build:sidecar": "bash scripts/build-sidecar.sh",
     "tauri:dev": "npx tauri dev",
     "tauri:build": "npx tauri build",
