@@ -154,17 +154,39 @@ const GITHUB_BASE = 'https://github.com/cloudflare/cloudflared/releases/latest/d
  * @returns {Promise<string>} 二进制文件的绝对路径
  */
 async function ensureCloudflared() {
-  // Tauri 打包环境：cloudflared 在 Sidecar 同级的 resources 目录下
-  // 通过环境变量 TAURI_RESOURCE_DIR 或检测可执行文件同级目录
   const execDir = path.dirname(process.execPath);
-  const tauriBinaryPath = path.join(execDir, getBinaryName());
+  const binaryName = getBinaryName();
+
+  // ── Tauri 打包环境 ──
+  // 1. cloudflared 可能在 Contents/MacOS/ 同级（externalBin 方式）
+  const tauriBinaryPath = path.join(execDir, binaryName);
   if (fs.existsSync(tauriBinaryPath)) {
     console.log(`[TunnelManager] cloudflared 已就绪（Tauri 打包）：${tauriBinaryPath}`);
     return tauriBinaryPath;
   }
 
-  // 开发环境：cloudflared 在项目根目录的 bin/ 下
-  const binDir = path.join(_dirname, '..', 'bin');
+  // 2. cloudflared 可能在 Contents/Resources/binaries/ 下（resources 方式，带平台后缀）
+  const resourcesDir = path.join(execDir, '..', 'Resources', 'binaries');
+  if (fs.existsSync(resourcesDir)) {
+    // 查找任何以 cloudflared 开头的文件
+    try {
+      const files = fs.readdirSync(resourcesDir);
+      const cfFile = files.find(f => f.startsWith('cloudflared'));
+      if (cfFile) {
+        const cfPath = path.join(resourcesDir, cfFile);
+        fs.chmodSync(cfPath, 0o755);
+        console.log(`[TunnelManager] cloudflared 已就绪（Tauri Resources）：${cfPath}`);
+        return cfPath;
+      }
+    } catch { /* ignore */ }
+  }
+
+  // ── pkg 打包环境检测 ──
+  // 如果在 pkg snapshot 里运行，不能 mkdir，用系统临时目录代替
+  const isPkg = process.execPath.includes('snapshot') || _dirname.startsWith('/snapshot');
+  const binDir = isPkg
+    ? path.join(os.tmpdir(), 'openclawanywhere-bin')
+    : path.join(_dirname, '..', 'bin');
   const binaryPath = path.join(binDir, getBinaryName());
 
   // 创建 bin 目录（若不存在）
