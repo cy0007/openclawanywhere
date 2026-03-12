@@ -68,7 +68,8 @@ export class AgentRunner extends EventEmitter {
 
     this._process.on('error', (err) => {
       console.error(`[AgentRunner] 进程启动失败：${err.message}`);
-      this.emit('error', err);
+      this._process = null;
+      this.emit('agent_error', `Agent 启动失败: ${err.message}`);
     });
 
     this._process.on('exit', (code, signal) => {
