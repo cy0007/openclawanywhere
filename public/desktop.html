@@ -99,10 +99,40 @@
       }
     });
 
-    // 开机自启
+    // 轮询 get_tunnel_info 作为后备（解决事件时序问题）
     if (coreApi && coreApi.invoke) {
       initAutostart(coreApi.invoke);
+      pollTunnelInfo(coreApi.invoke);
     }
+  }
+
+  function pollTunnelInfo(invoke) {
+    let attempts = 0;
+    const maxAttempts = 60; // 最多轮询 2 分钟
+    const timer = setInterval(async () => {
+      // 如果二维码已显示，停止轮询
+      if (!document.getElementById('qrSection').classList.contains('hidden')) {
+        clearInterval(timer);
+        return;
+      }
+      attempts++;
+      if (attempts > maxAttempts) {
+        dbg('轮询超时，停止');
+        clearInterval(timer);
+        return;
+      }
+      try {
+        const info = await invoke('get_tunnel_info');
+        if (info) {
+          dbg('轮询获取到隧道信息');
+          const data = typeof info === 'string' ? JSON.parse(info) : info;
+          showQRCode(data.fullUrl, data.tunnelUrl);
+          clearInterval(timer);
+        }
+      } catch (e) {
+        // 静默忽略，继续轮询
+      }
+    }, 2000);
   }
 
   function showQRCode(fullUrl, tunnelUrl) {
