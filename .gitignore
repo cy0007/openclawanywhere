@@ -1,0 +1,7 @@
+node_modules/
+src-tauri/target/
+src-tauri/binaries/openclaw-gateway*
+src-tauri/binaries/cloudflared*
+!src-tauri/binaries/.gitkeep
+bin/cloudflared*
+.DS_Store

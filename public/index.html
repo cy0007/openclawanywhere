@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>OpenClawAnywhere</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    /* 状态指示灯 */
+    .status-dot {
+      width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+      transition: background-color 0.3s;
+    }
+    .status-dot.red    { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+    .status-dot.yellow { background: #eab308; box-shadow: 0 0 6px #eab308; }
+    .status-dot.green  { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+
+    /* 思考区 */
+    .thought-box {
+      background: #1e293b; border-left: 3px solid #64748b; border-radius: 6px;
+      padding: 10px 12px; margin-bottom: 8px; font-size: 13px; color: #94a3b8;
+    }
+    .thought-box summary { cursor: pointer; font-weight: 600; color: #cbd5e1; user-select: none; }
+
+    /* 回答区 */
+    .answer-box { line-height: 1.7; }
+    .answer-box p { margin-bottom: 0.5em; }
+    .answer-box pre { background: #1e293b; border-radius: 6px; padding: 12px; overflow-x: auto; margin: 8px 0; }
+    .answer-box code { font-size: 13px; }
+    .answer-box 
+ul, .answer-box ol { padding-left: 1.5em; margin-bottom: 0.5em; }
+
+    /* 消息气泡 */
+    .msg-user { background: #1d4ed8; border-radius: 16px 16px 4px 16px; padding: 8px 14px; max-width: 80%; align-self: flex-end; }
+    .msg-ai   { background: #1e293b; border-radius: 16px 16px 16px 4px; padding: 10px 14px; max-width: 90%; align-self: flex-start; }
+
+    /* 打字光标 */
+    .typing-cursor::after { content: '▍'; animation: blink 0.8s infinite; color: #60a5fa; }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+    #chat-area { scroll-behavior: smooth; }
+  </style>
+</head>
+<body class="h-screen flex flex-col">
+
+  <!-- 顶部状态栏 -->
+  <header class="flex items-center justify-between px-4 py-3 bg-slate-800/80 backdrop-blur border-b border-slate-700 shrink-0">
+    <div class="flex items-center gap-2">
+      <span class="text-base font-semibold">🐾 OpenClaw</span>
+    </div>
+    <div class="flex items-center gap-2 text-xs">
+      <span class="status-dot red" id="statusDot"></span>
+      <span id="statusText" class="text-slate-400">未连接</span>
+    </div>
+  </header>
+
+  <!-- 聊天区域 -->
+  <main id="chat-area" class="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-3">
+    <div class="text-center text-slate-500 text-xs py-8" id="emptyHint">等待连接...</div>
+  </main>
+
+  <!-- 底部输入栏 -->
+  <footer class="shrink-0 px-3 py-2 bg-slate-800/80 backdrop-blur border-t border-slate-700">
+    <form id="inputForm" class="flex gap-2">
+      <input
+        id="inputBox"
+        type="text"
+        placeholder="输入指令..."
+        autocomplete="off"
+        class="flex-1 bg-slate-700 text-sm text-slate-100 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
+        disabled
+      />
+      <button
+        type="submit"
+        id="sendBtn"
+        class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-full px-5 py-2 transition disabled:opacity-40"
+        disabled
+      >发送</button>
+    </form>
+  </footer>
+
+<script>
+// ─── 工具函数 ──────────────────────────────────────────────────────────────
+
+/** 从 URL query 中取参数 */
+function getQueryParam(name) {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+
+/** 自动滚动到底部 */
+function scrollToBottom() {
+  const el = document.getElementById('chat-area');
+  requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+}
+
+// ─── DOM 引用 ──────────────────────────────────────────────────────────────
+
+const statusDot  = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const chatArea   = document.getElementById('chat-area');
+const emptyHint  = document.getElementById('emptyHint');
+const inputForm  = document.getElementById('inputForm');
+const inputBox   = document.getElementById('inputBox');
+const sendBtn    = document.getElementById('sendBtn');
+
+// ─── 状态管理 ──────────────────────────────────────────────────────────────
+
+function setStatus(state) {
+  statusDot.className = 'status-dot ' + state;
+  const labels = { red: '已断开', yellow: '连接中...', green: '已就绪' };
+  statusText.textContent = labels[state] || state;
+
+  const connected = state === 'green';
+  inputBox.disabled = !connected;
+  sendBtn.disabled  = !connected;
+}
+
+// ─── 消息渲染 ──────────────────────────────────────────────────────────────
+
+/** 添加用户消息气泡 */
+function appendUserMsg(text) {
+  emptyHint.style.display = 'none';
+  const div = document.createElement('div');
+  div.className = 'msg-user text-sm';
+  div.textContent = text;
+  chatArea.appendChild(div);
+  scrollToBottom();
+}
+
+/**
+ * 创建一个 AI 消息容器，返回控制对象。
+ * 支持流式追加文本，自动解析 <think> 标签。
+ */
+function createAIMessage() {
+  emptyHint.style.display = 'none';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'msg-ai text-sm';
+
+  // 思考区（默认隐藏，有内容时才显示）
+  const thoughtDetails = document.createElement('details');
+  thoughtDetails.className = 'thought-box hidden';
+  thoughtDetails.innerHTML = '<summary>💭 思考过程</summary><div class="thought-content mt-2"></div>';
+  wrapper.appendChild(thoughtDetails);
+
+  // 回答区
+  const answerDiv = document.createElement('div');
+  answerDiv.className = 'answer-box typing-cursor';
+  wrapper.appendChild(answerDiv);
+
+  chatArea.appendChild(wrapper);
+  scrollToBottom();
+
+  // ── 流式状态机 ──
+  let rawBuffer = '';       // 完整原始文本
+  let inThink = false;      // 当前是否在 <think> 块内
+  let thinkBuf = '';        // 思考内容累积
+  let answerBuf = '';       // 回答内容累积
+
+  const thoughtContent = thoughtDetails.querySelector('.thought-content');
+
+  return {
+    /** 追加一段流式文本 */
+    append(chunk) {
+      rawBuffer += chunk;
+      // 逐字符解析，维护 <think> 状态
+      parseStream();
+      scrollToBottom();
+    },
+
+    /** 流结束，移除打字光标 */
+    finish() {
+      answerDiv.classList.remove('typing-cursor');
+      // 最终渲染一次确保完整
+      renderAnswer();
+      renderThought();
+      scrollToBottom();
+    },
+  };
+
+  function parseStream() {
+    // 重新从 rawBuffer 解析（简单但可靠）
+    let tempThink = '';
+    let tempAnswer = '';
+    let inside = false;
+    let i = 0;
+    const buf = rawBuffer;
+
+    while (i < buf.length) {
+      // 检测 <think> 开标签
+      if (buf.startsWith('<think>', i)) {
+        inside = true;
+        i += 7; // '<think>'.length
+        continue;
+      }
+      // 检测 </think> 闭标签
+      if (buf.startsWith('</think>', i)) {
+        inside = false;
+        i += 8; // '</think>'.length
+        continue;
+      }
+      if (inside) {
+        tempThink += buf[i];
+      } else {
+        tempAnswer += buf[i];
+      }
+      i++;
+    }
+
+    inThink = inside;
+    thinkBuf = tempThink;
+    answerBuf = tempAnswer;
+
+    renderThought();
+    renderAnswer();
+  }
+
+  function renderThought() {
+    if (thinkBuf.trim()) {
+      thoughtDetails.classList.remove('hidden');
+      thoughtContent.textContent = thinkBuf;
+    }
+  }
+
+  function renderAnswer() {
+    if (answerBuf.trim()) {
+      answerDiv.innerHTML = marked.parse(answerBuf);
+    }
+  }
+}
+
+// ─── Socket.io 连接 ────────────────────────────────────────────────────────
+
+const token = getQueryParam('token');
+
+if (!token) {
+  setStatus('red');
+  statusText.textContent = '缺少 Token';
+  emptyHint.textContent = '⚠️ URL 中缺少 token 参数，请通过扫码访问。';
+} else {
+  setStatus('yellow');
+
+  // 连接到当前页面所在的 origin（隧道 URL）
+  const socket = io({
+    transports: ['websocket'],  // 强制 WebSocket，跳过 polling（Cloudflare Tunnel 对 polling 支持不稳定）
+    auth: { token },
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 2000,
+    reconnectionDelayMax: 10000,
+  });
+
+  socket.on('connect', () => {
+    console.log('[WS] 已连接', socket.id);
+  });
+
+  socket.on('connection_success', (data) => {
+    setStatus('green');
+    emptyHint.textContent = '✅ 已连接，可以开始对话。';
+    console.log('[WS] 握手成功', data);
+  });
+
+  socket.on('disconnect', (reason) => {
+    setStatus('yellow');
+    emptyHint.style.display = '';
+    emptyHint.textContent = '连接已断开，正在重试...';
+    console.warn('[WS] 断开', reason);
+  });
+
+  socket.on('connect_error', (err) => {
+    setStatus('red');
+    emptyHint.style.display = '';
+    emptyHint.textContent = err.message === 'Authentication failed'
+      ? '⚠️ Token 无效，请重新扫码。'
+      : `连接失败：${err.message}`;
+  });
+
+  // ── 流式 AI 回复 ──
+
+  let currentMsg = null;
+
+  socket.on('ai_stream_start', () => {
+    currentMsg = createAIMessage();
+  });
+
+  socket.on('ai_stream_chunk', (data) => {
+    if (currentMsg) currentMsg.append(data.text || '');
+  });
+
+  socket.on('ai_stream_end', () => {
+    if (currentMsg) {
+      currentMsg.finish();
+      currentMsg = null;
+    }
+  });
+
+  // 非流式回复兜底
+  socket.on('ai_response', (data) => {
+    const msg = createAIMessage();
+    msg.append(data.text || '');
+    msg.finish();
+  });
+
+  // 心跳 pong
+  socket.on('command_response', (data) => {
+    if (data.action === 'pong') {
+      console.log('[WS] 收到 pong');
+    }
+  });
+
+  // ── 发送指令 ──
+
+  inputForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = inputBox.value.trim();
+    if (!text) return;
+
+    appendUserMsg(text);
+    socket.emit('command', { action: 'chat', text });
+    inputBox.value = '';
+  });
+}
+</script>
+</body>
+</html>

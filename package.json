@@ -1,0 +1,32 @@
+{
+  "name": "openclaw-anywhere",
+  "version": "1.0.0",
+  "description": "OpenClawAnywhere Host Service",
+  "type": "module",
+  "main": "run.js",
+  "scripts": {
+    "start": "node run.js",
+    "build:sidecar": "bash scripts/build-sidecar.sh",
+    "tauri:dev": "npx tauri dev",
+    "tauri:build": "npx tauri build",
+    "release": "npm run build:sidecar && npx tauri build"
+  },
+  "pkg": {
+    "assets": [
+      "public/**/*",
+      "src/**/*.js"
+    ],
+    "outputPath": "src-tauri/binaries"
+  },
+  "dependencies": {
+    "execa": "^9.0.0",
+    "express": "^4.21.0",
+    "nanoid": "^5.0.0",
+    "qrcode-terminal": "^0.12.0",
+    "socket.io": "^4.8.0",
+    "tar": "^7.5.11"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenClawAnywhere</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .status-dot.green { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .status-dot.yellow { background: #eab308; box-shadow: 0 0 8px #eab308; }
+    .status-dot.red { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+  </style>
+</head>
+<body class="h-screen flex flex-col items-center justify-center p-6">
+  <div class="text-center space-y-6 max-w-sm">
+    <h1 class="text-2xl font-bold">🐾 OpenClawAnywhere</h1>
+    <p class="text-slate-400 text-sm">宿主端守护进程运行中</p>
+
+    <div class="bg-slate-800 rounded-xl p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-slate-300">网关状态</span>
+        <div class="flex items-center gap-2">
+          <span class="status-dot green" id="gatewayDot"></span>
+          <span class="text-xs text-slate-400" id="gatewayStatus">运行中</span>
+        </div>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-slate-300">隧道状态</span>
+        <div class="flex items-center gap-2">
+          <span class="status-dot yellow" id="tunnelDot"></span>
+          <span class="text-xs text-slate-400" id="tunnelStatus">等待连接</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-slate-800 rounded-xl p-5 space-y-3">
+      <label class="flex items-center justify-between cursor-pointer">
+        <span class="text-sm text-slate-300">开机自启</span>
+        <input type="checkbox" id="autostartToggle" class="w-5 h-5 accent-blue-500" />
+      </label>
+    </div>
+
+    <p class="text-xs text-slate-500">手机扫码即可远程控制，无需额外操作。</p>
+  </div>
+
+<script>
+  // Tauri IPC 调用（仅在 Tauri 环境下可用）
+  const { invoke } = window.__TAURI__?.core || {};
+
+  const autostartToggle = document.getElementById('autostartToggle');
+
+  async function initAutostart() {
+    if (!invoke) return;
+    try {
+      const enabled = await invoke('get_autostart_status');
+      autostartToggle.checked = enabled;
+    } catch (e) {
+      console.error('获取自启状态失败', e);
+    }
+  }
+
+  autostartToggle?.addEventListener('change', async () => {
+    if (!invoke) return;
+    try {
+      const newState = await invoke('toggle_autostart');
+      autostartToggle.checked = newState;
+    } catch (e) {
+      console.error('切换自启失败', e);
+    }
+  });
+
+  initAutostart();
+</script>
+</body>
+</html>
