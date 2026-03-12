@@ -313,6 +313,11 @@ export class TunnelManager extends EventEmitter {
       this._process.stderr.on('data', (chunk) => {
         const line = chunk.toString();
 
+        // 输出 cloudflared 的 ERR/WRN 级别日志，帮助排查
+        if (line.includes('ERR') || line.includes('WRN') || line.includes('trycloudflare.com')) {
+          console.error(`[cloudflared] ${line.trim()}`);
+        }
+
         const match = line.match(TUNNEL_URL_REGEX);
         if (match) {
           const tunnelUrl = match[0];
@@ -326,7 +331,8 @@ export class TunnelManager extends EventEmitter {
         this.emit('error', err);
       });
 
-      this._process.on('exit', (code) => {
+      this._process.on('exit', (code, signal) => {
+        console.error(`[TunnelManager] cloudflared 退出，code=${code}, signal=${signal}`);
         if (code !== 0 && code !== null) {
           console.error(`[TunnelManager] ⚠️  cloudflared 异常退出，退出码：${code}`);
         }
