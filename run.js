@@ -7,7 +7,7 @@ import { TunnelManager } from './src/tunnelManager.js';
 import { startGateway } from './src/gateway.js';
 import qrcode from 'qrcode-terminal';
 
-const PORT = 18789;
+const PORT = 28789;
 
 // Agent 配置（根据实际 OpenClaw 安装路径调整）
 const AGENT_OPTS = {

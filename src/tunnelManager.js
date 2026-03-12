@@ -271,7 +271,7 @@ async function ensureCloudflared() {
 // ─── TunnelManager ───────────────────────────────────────────────────────────
 
 const TUNNEL_URL_REGEX = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i;
-const LOCAL_PORT = 18789;
+const LOCAL_PORT = 28789;
 
 export class TunnelManager extends EventEmitter {
   constructor() {
