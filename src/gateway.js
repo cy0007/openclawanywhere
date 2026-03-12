@@ -11,7 +11,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { AgentRunner } from './agentRunner.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * 启动 Gateway 服务。
@@ -28,7 +28,7 @@ export function startGateway(port, agentOpts = {}) {
   const app = express();
 
   // 静态文件服务（移动端 Web 控制台）
-  app.use(express.static(path.join(__dirname, '..', 'public')));
+  app.use(express.static(path.join(_dirname, '..', 'public')));
 
   // Health check
   app.get('/health', (_req, res) => {
