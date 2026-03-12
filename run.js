@@ -27,16 +27,19 @@ tunnel.on('tunnel_ready', (tunnelUrl) => {
   // 拼接带 Token 的完整访问地址
   const fullUrl = `${tunnelUrl}/?token=${sessionToken}`;
 
-  console.log('\n' + '='.repeat(55));
-  console.log('  OpenClawAnywhere 宿主端已就绪');
-  console.log(`  公网地址：${tunnelUrl}`);
-  console.log(`  鉴权地址：${fullUrl}`);
-  console.log('='.repeat(55));
-  console.log('\n  请用手机扫描下方二维码连接：\n');
+  // 延迟 2 秒打印二维码，等 cloudflared 启动日志刷完，避免二维码被日志割裂
+  setTimeout(() => {
+    console.log('\n\n' + '='.repeat(55));
+    console.log('  OpenClawAnywhere 宿主端已就绪');
+    console.log(`  公网地址：${tunnelUrl}`);
+    console.log(`  鉴权地址：${fullUrl}`);
+    console.log('='.repeat(55));
+    console.log('\n  请用手机扫描下方二维码连接：\n');
 
-  qrcode.generate(fullUrl, { small: true }, (code) => {
-    console.log(code);
-  });
+    qrcode.generate(fullUrl, { small: true }, (code) => {
+      console.log(code);
+    });
+  }, 2000);
 });
 
 tunnel.on('error', (err) => {
