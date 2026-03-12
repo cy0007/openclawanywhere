@@ -142,6 +142,14 @@ export function startGateway(port, agentOpts = {}) {
     console.log(`[HTTP DEBUG] ${req.method} ${req.url} from ${req.socket.remoteAddress}`);
   });
 
+  httpServer.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[Gateway] ⚠️ 端口 ${port} 已被占用，请先关闭上一个实例。`);
+    } else {
+      console.error(`[Gateway] 服务错误：${err.message}`);
+    }
+  });
+
   httpServer.listen(port, '0.0.0.0', () => {
     console.log(`[Gateway] 服务已启动，监听 0.0.0.0:${port}`);
   });

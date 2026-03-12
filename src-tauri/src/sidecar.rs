@@ -2,18 +2,19 @@
 //! 负责启动和监控 Node.js 网关进程（通过 pkg 打包的单文件二进制）。
 
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
-/// 启动网关 Sidecar 进程。
-pub fn spawn_gateway(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+/// 启动网关 Sidecar 进程，返回 child 句柄用于退出时清理。
+pub fn spawn_gateway(app: &AppHandle) -> Result<CommandChild, Box<dyn std::error::Error>> {
     let sidecar = app.shell().sidecar("openclaw-gateway")?;
-    let (mut _rx, _child) = sidecar.spawn()?;
+    let (mut rx, child) = sidecar.spawn()?;
     let app_handle = app.clone();
 
     tauri::async_runtime::spawn(async move {
         use tauri_plugin_shell::process::CommandEvent;
 
-        while let Some(event) = _rx.recv().await {
+        while let Some(event) = rx.recv().await {
             match event {
                 CommandEvent::Stdout(line) => {
                     let text = String::from_utf8_lossy(&line);
@@ -47,5 +48,5 @@ pub fn spawn_gateway(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
     });
 
     println!("[Sidecar] 网关进程已启动");
-    Ok(())
+    Ok(child)
 }

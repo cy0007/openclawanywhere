@@ -3,12 +3,16 @@
 
 mod sidecar;
 
+use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
     Manager,
 };
 use tauri_plugin_autostart::MacosLauncher;
+use tauri_plugin_shell::process::CommandChild;
+
+struct SidecarState(Mutex<Option<CommandChild>>);
 
 fn main() {
     tauri::Builder::default()
@@ -17,6 +21,7 @@ fn main() {
             MacosLauncher::LaunchAgent,
             None,
         ))
+        .manage(SidecarState(Mutex::new(None)))
         .setup(|app| {
             // ── 系统托盘 ──
             let quit = MenuItem::with_id(app, "quit", "退出 OpenClaw", true, None::<&str>)?;
@@ -28,6 +33,14 @@ fn main() {
                 .tooltip("OpenClawAnywhere")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => {
+                        // 退出前杀掉 sidecar
+                        if let Some(state) = app.try_state::<SidecarState>() {
+                            if let Ok(mut guard) = state.0.lock() {
+                                if let Some(child) = guard.take() {
+                                    let _ = child.kill();
+                                }
+                            }
+                        }
                         app.exit(0);
                     }
                     "show" => {
@@ -42,7 +55,14 @@ fn main() {
 
             // ── 启动 Sidecar (Node.js 网关) ──
             match sidecar::spawn_gateway(app.handle()) {
-                Ok(_) => println!("[App] Sidecar 启动成功"),
+                Ok(child) => {
+                    println!("[App] Sidecar 启动成功");
+                    if let Some(state) = app.try_state::<SidecarState>() {
+                        if let Ok(mut guard) = state.0.lock() {
+                            *guard = Some(child);
+                        }
+                    }
+                }
                 Err(e) => eprintln!("[App] Sidecar 启动失败: {e}"),
             }
 
