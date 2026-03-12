@@ -1,10 +1,20 @@
 # 🐾 OpenClawAnywhere
 
-**Your Mac/PC, Your Pocket AI Agent.**
+<p align="center">
+  <img src="docs/images/logo.png" alt="OpenClawAnywhere Logo" width="200" />
+</p>
 
-让每一台运行 OpenClaw 的本地电脑，通过扫码瞬间变为「随时随地可控」的私有化 AI 服务器。
+<p align="center">
+  <strong>Your Mac/PC, Your Pocket AI Agent.</strong>
+</p>
 
-手机扫码 → 连接家里的电脑 → 开始对话。无需注册、无需下载 App、数据全部留在本地。
+<p align="center">
+  让每一台运行 OpenClaw 的本地电脑，通过扫码瞬间变为「随时随地可控」的私有化 AI 服务器。
+</p>
+
+<p align="center">
+  手机扫码 → 连接家里的电脑 → 开始对话。无需注册、无需下载 App、数据全部留在本地。
+</p>
 
 ---
 
@@ -73,6 +83,10 @@ AGENT_CMD=python AGENT_ARGS=main.py AGENT_CWD=/path/to/openclaw npm start
 ### 📥 下载安装包
 
 前往 [GitHub Releases](https://github.com/cy0007/openclawanywhere/releases/latest) 下载对应平台的安装包：
+
+<p align="center">
+  <img src="docs/images/download.png" alt="下载页面" width="600" />
+</p>
 
 | 平台 | 文件 | 说明 |
 |------|------|------|
