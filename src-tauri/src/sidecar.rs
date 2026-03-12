@@ -1,7 +1,7 @@
 //! Sidecar 管理模块
 //! 负责启动和监控 Node.js 网关进程（通过 pkg 打包的单文件二进制）。
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
