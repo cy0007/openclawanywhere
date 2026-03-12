@@ -54,7 +54,7 @@ jobs:
         include:
           - platform: macos-latest
             rust_target: aarch64-apple-darwin
-            args: --target aarch64-apple-darwin
+            args: --target aarch64-apple-darwin --bundles app,updater
 
           - platform: macos-latest
             rust_target: x86_64-apple-darwin
