@@ -16,6 +16,10 @@
   手机扫码 → 连接家里的电脑 → 开始对话。无需注册、无需下载 App、数据全部留在本地。
 </p>
 
+<p align="center">
+  中文 | <a href="README_EN.md">English</a>
+</p>
+
 ---
 
 ## ✨ 核心特性
