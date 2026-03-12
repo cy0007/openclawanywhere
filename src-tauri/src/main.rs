@@ -14,6 +14,9 @@ use tauri_plugin_shell::process::CommandChild;
 
 struct SidecarState(Mutex<Option<CommandChild>>);
 
+/// 缓存隧道信息，供前端查询
+pub struct TunnelState(pub Mutex<Option<String>>);
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -22,8 +25,8 @@ fn main() {
             None,
         ))
         .manage(SidecarState(Mutex::new(None)))
+        .manage(TunnelState(Mutex::new(None)))
         .setup(|app| {
-            // ── 系统托盘 ──
             let quit = MenuItem::with_id(app, "quit", "退出 OpenClaw", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
@@ -33,7 +36,6 @@ fn main() {
                 .tooltip("OpenClawAnywhere")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => {
-                        // 退出前杀掉 sidecar
                         if let Some(state) = app.try_state::<SidecarState>() {
                             if let Ok(mut guard) = state.0.lock() {
                                 if let Some(child) = guard.take() {
@@ -53,7 +55,6 @@ fn main() {
                 })
                 .build(app)?;
 
-            // ── 启动 Sidecar (Node.js 网关) ──
             match sidecar::spawn_gateway(app.handle()) {
                 Ok(child) => {
                     println!("[App] Sidecar 启动成功");
@@ -71,16 +72,21 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             toggle_autostart,
             get_autostart_status,
+            get_tunnel_info,
         ])
         .run(tauri::generate_context!())
         .expect("启动 OpenClawAnywhere 失败");
 }
 
-/// 切换开机自启状态
+/// 前端查询隧道信息（解决事件时序问题）
+#[tauri::command]
+fn get_tunnel_info(state: tauri::State<TunnelState>) -> Option<String> {
+    state.0.lock().ok().and_then(|g| g.clone())
+}
+
 #[tauri::command]
 fn toggle_autostart(app: tauri::AppHandle) -> Result<bool, String> {
     use tauri_plugin_autostart::ManagerExt;
-
     let autostart = app.autolaunch();
     if autostart.is_enabled().map_err(|e| e.to_string())? {
         autostart.disable().map_err(|e| e.to_string())?;
@@ -91,7 +97,6 @@ fn toggle_autostart(app: tauri::AppHandle) -> Result<bool, String> {
     }
 }
 
-/// 获取当前开机自启状态
 #[tauri::command]
 fn get_autostart_status(app: tauri::AppHandle) -> Result<bool, String> {
     use tauri_plugin_autostart::ManagerExt;
