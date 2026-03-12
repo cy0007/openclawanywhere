@@ -7,7 +7,7 @@ use tauri_plugin_shell::ShellExt;
 /// 启动网关 Sidecar 进程。
 /// Tauri 会自动在 `binaries/` 目录下查找与当前平台匹配的二进制文件。
 pub fn spawn_gateway(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let sidecar = app.shell().sidecar("binaries/openclaw-gateway")?;
+    let sidecar = app.shell().sidecar("openclaw-gateway")?;
 
     let (mut _rx, _child) = sidecar.spawn()?;
 
