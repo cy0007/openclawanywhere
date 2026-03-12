@@ -24,17 +24,18 @@ console.log(`[run] 会话 Token 已生成：${sessionToken}`);
 const tunnel = new TunnelManager();
 
 tunnel.on('tunnel_ready', (tunnelUrl) => {
-  // 拼接带 Token 的完整访问地址
   const fullUrl = `${tunnelUrl}/?token=${sessionToken}`;
 
-  // 延迟 2 秒打印二维码，等 cloudflared 启动日志刷完，避免二维码被日志割裂
+  // 输出结构化事件供 Tauri sidecar 解析
+  console.log(JSON.stringify({ event: 'tunnel_ready', tunnelUrl, fullUrl }));
+
+  // CLI 模式下延迟打印二维码（Tauri 模式下由桌面 UI 渲染）
   setTimeout(() => {
-    console.log('\n\n' + '='.repeat(55));
+    console.log('\n' + '='.repeat(55));
     console.log('  OpenClawAnywhere 宿主端已就绪');
     console.log(`  公网地址：${tunnelUrl}`);
     console.log(`  鉴权地址：${fullUrl}`);
     console.log('='.repeat(55));
-    console.log('\n  请用手机扫描下方二维码连接：\n');
 
     qrcode.generate(fullUrl, { small: true }, (code) => {
       console.log(code);
