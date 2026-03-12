@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OpenClawAnywhere</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
   <style>
     body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
@@ -14,10 +15,10 @@
   </style>
 </head>
 <body class="h-screen flex flex-col items-center justify-center p-6">
-  <div class="text-center space-y-6 max-w-sm">
+  <div class="text-center space-y-5 max-w-sm w-full">
     <h1 class="text-2xl font-bold">🐾 OpenClawAnywhere</h1>
-    <p class="text-slate-400 text-sm">宿主端守护进程运行中</p>
 
+    <!-- 状态面板 -->
     <div class="bg-slate-800 rounded-xl p-5 space-y-4">
       <div class="flex items-center justify-between">
         <span class="text-sm text-slate-300">网关状态</span>
@@ -30,27 +31,72 @@
         <span class="text-sm text-slate-300">隧道状态</span>
         <div class="flex items-center gap-2">
           <span class="status-dot yellow" id="tunnelDot"></span>
-          <span class="text-xs text-slate-400" id="tunnelStatus">等待连接</span>
+          <span class="text-xs text-slate-400" id="tunnelStatus">等待连接...</span>
         </div>
       </div>
     </div>
 
+    <!-- 二维码区域 -->
+    <div id="qrSection" class="hidden">
+      <div class="bg-white rounded-xl p-4 inline-block">
+        <canvas id="qrCanvas"></canvas>
+      </div>
+      <p class="text-sm text-slate-400 mt-3">手机扫码连接</p>
+      <p class="text-xs text-slate-500 mt-1 break-all px-2" id="tunnelUrlText"></p>
+    </div>
+
+    <!-- 等待提示 -->
+    <div id="waitingSection">
+      <p class="text-sm text-slate-500 animate-pulse">正在建立隧道，请稍候...</p>
+    </div>
+
+    <!-- 开机自启 -->
     <div class="bg-slate-800 rounded-xl p-5 space-y-3">
       <label class="flex items-center justify-between cursor-pointer">
         <span class="text-sm text-slate-300">开机自启</span>
         <input type="checkbox" id="autostartToggle" class="w-5 h-5 accent-blue-500" />
       </label>
     </div>
-
-    <p class="text-xs text-slate-500">手机扫码即可远程控制，无需额外操作。</p>
   </div>
 
 <script>
-  // Tauri IPC 调用（仅在 Tauri 环境下可用）
   const { invoke } = window.__TAURI__?.core || {};
+  const { listen } = window.__TAURI__?.event || {};
 
   const autostartToggle = document.getElementById('autostartToggle');
+  const tunnelDot = document.getElementById('tunnelDot');
+  const tunnelStatus = document.getElementById('tunnelStatus');
+  const qrSection = document.getElementById('qrSection');
+  const waitingSection = document.getElementById('waitingSection');
+  const tunnelUrlText = document.getElementById('tunnelUrlText');
 
+  // 监听 Tauri 事件：隧道就绪
+  if (listen) {
+    listen('tunnel_ready', (ev) => {
+      try {
+        const data = JSON.parse(ev.payload);
+        showQRCode(data.fullUrl, data.tunnelUrl);
+      } catch (e) {
+        console.error('解析隧道事件失败', e);
+      }
+    });
+  }
+
+  function showQRCode(fullUrl, tunnelUrl) {
+    tunnelDot.className = 'status-dot green';
+    tunnelStatus.textContent = '已连接';
+    tunnelUrlText.textContent = tunnelUrl;
+    waitingSection.classList.add('hidden');
+    qrSection.classList.remove('hidden');
+
+    QRCode.toCanvas(document.getElementById('qrCanvas'), fullUrl, {
+      width: 220,
+      margin: 1,
+      color: { dark: '#0f172a', light: '#ffffff' }
+    });
+  }
+
+  // 开机自启
   async function initAutostart() {
     if (!invoke) return;
     try {
