@@ -27,8 +27,14 @@ pub fn spawn_gateway(app: &AppHandle) -> Result<CommandChild, Box<dyn std::error
                             if let Some(evt) = val.get("event").and_then(|e| e.as_str()) {
                                 println!("[Sidecar] 收到事件: {}", evt);
                                 if evt == "tunnel_ready" {
+                                    // 缓存到 TunnelState，供前端轮询
+                                    if let Some(state) = app_handle.try_state::<crate::TunnelState>() {
+                                        if let Ok(mut guard) = state.0.lock() {
+                                            *guard = Some(json_str.to_string());
+                                        }
+                                    }
                                     let _ = app_handle.emit("tunnel_ready", json_str.to_string());
-                                    println!("[Sidecar] 已转发 tunnel_ready 到 WebView");
+                                    println!("[Sidecar] 已转发 tunnel_ready 到 WebView (已缓存)");
                                 }
                             }
                         }
