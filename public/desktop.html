@@ -12,6 +12,7 @@
     .status-dot.green { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
     .status-dot.yellow { background: #eab308; box-shadow: 0 0 8px #eab308; }
     .status-dot.red { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+    #debugLog { font-size: 10px; color: #64748b; max-height: 60px; overflow-y: auto; }
   </style>
 </head>
 <body class="h-screen flex flex-col items-center justify-center p-6">
@@ -23,14 +24,14 @@
       <div class="flex items-center justify-between">
         <span class="text-sm text-slate-300">网关状态</span>
         <div class="flex items-center gap-2">
-          <span class="status-dot green" id="gatewayDot"></span>
-          <span class="text-xs text-slate-400" id="gatewayStatus">运行中</span>
+          <span class="status-dot green"></span>
+          <span class="text-xs text-slate-400">运行中</span>
         </div>
       </div>
       <div class="flex items-center justify-between">
         <span class="text-sm text-slate-300">隧道状态</span>
         <div class="flex items-center gap-2">
-          <span class="status-dot yellow" id="tunnelDot"></span>
+          <span class="status-dot" id="tunnelDot"></span>
           <span class="text-xs text-slate-400" id="tunnelStatus">等待连接...</span>
         </div>
       </div>
@@ -51,73 +52,101 @@
     </div>
 
     <!-- 开机自启 -->
-    <div class="bg-slate-800 rounded-xl p-5 space-y-3">
+    <div class="bg-slate-800 rounded-xl p-5">
       <label class="flex items-center justify-between cursor-pointer">
         <span class="text-sm text-slate-300">开机自启</span>
         <input type="checkbox" id="autostartToggle" class="w-5 h-5 accent-blue-500" />
       </label>
     </div>
+
+    <div id="debugLog"></div>
   </div>
 
 <script>
-  const { invoke } = window.__TAURI__?.core || {};
-  const { listen } = window.__TAURI__?.event || {};
+  function dbg(msg) {
+    const el = document.getElementById('debugLog');
+    el.textContent += msg + '\n';
+    console.log('[desktop]', msg);
+  }
 
-  const autostartToggle = document.getElementById('autostartToggle');
-  const tunnelDot = document.getElementById('tunnelDot');
-  const tunnelStatus = document.getElementById('tunnelStatus');
-  const qrSection = document.getElementById('qrSection');
-  const waitingSection = document.getElementById('waitingSection');
-  const tunnelUrlText = document.getElementById('tunnelUrlText');
+  function initTauri() {
+    const tauri = window.__TAURI__;
+    if (!tauri) {
+      dbg('⚠ window.__TAURI__ 不可用');
+      return;
+    }
 
-  // 监听 Tauri 事件：隧道就绪
-  if (listen) {
-    listen('tunnel_ready', (ev) => {
+    dbg('✓ Tauri API 已加载');
+
+    // Tauri 2: event API 在 tauri.event 下
+    const eventApi = tauri.event;
+    const coreApi = tauri.core;
+
+    if (!eventApi || !eventApi.listen) {
+      dbg('⚠ event.listen 不可用, keys: ' + Object.keys(tauri).join(','));
+      return;
+    }
+
+    dbg('✓ 正在监听 tunnel_ready 事件...');
+
+    eventApi.listen('tunnel_ready', (ev) => {
+      dbg('收到事件: ' + JSON.stringify(ev.payload).substring(0, 100));
       try {
-        const data = JSON.parse(ev.payload);
+        const data = typeof ev.payload === 'string' ? JSON.parse(ev.payload) : ev.payload;
         showQRCode(data.fullUrl, data.tunnelUrl);
       } catch (e) {
-        console.error('解析隧道事件失败', e);
+        dbg('解析失败: ' + e.message);
       }
     });
+
+    // 开机自启
+    if (coreApi && coreApi.invoke) {
+      initAutostart(coreApi.invoke);
+    }
   }
 
   function showQRCode(fullUrl, tunnelUrl) {
-    tunnelDot.className = 'status-dot green';
-    tunnelStatus.textContent = '已连接';
-    tunnelUrlText.textContent = tunnelUrl;
-    waitingSection.classList.add('hidden');
-    qrSection.classList.remove('hidden');
+    dbg('显示二维码: ' + tunnelUrl);
+    document.getElementById('tunnelDot').className = 'status-dot green';
+    document.getElementById('tunnelStatus').textContent = '已连接';
+    document.getElementById('tunnelUrlText').textContent = tunnelUrl;
+    document.getElementById('waitingSection').classList.add('hidden');
+    document.getElementById('qrSection').classList.remove('hidden');
 
     QRCode.toCanvas(document.getElementById('qrCanvas'), fullUrl, {
       width: 220,
       margin: 1,
       color: { dark: '#0f172a', light: '#ffffff' }
+    }, (err) => {
+      if (err) dbg('QR 渲染失败: ' + err.message);
     });
   }
 
-  // 开机自启
-  async function initAutostart() {
-    if (!invoke) return;
+  async function initAutostart(invoke) {
+    const toggle = document.getElementById('autostartToggle');
     try {
       const enabled = await invoke('get_autostart_status');
-      autostartToggle.checked = enabled;
+      toggle.checked = enabled;
     } catch (e) {
-      console.error('获取自启状态失败', e);
+      dbg('自启状态获取失败: ' + e);
     }
+
+    toggle.addEventListener('change', async () => {
+      try {
+        const newState = await invoke('toggle_autostart');
+        toggle.checked = newState;
+      } catch (e) {
+        dbg('切换自启失败: ' + e);
+      }
+    });
   }
 
-  autostartToggle?.addEventListener('change', async () => {
-    if (!invoke) return;
-    try {
-      const newState = await invoke('toggle_autostart');
-      autostartToggle.checked = newState;
-    } catch (e) {
-      console.error('切换自启失败', e);
-    }
-  });
-
-  initAutostart();
+  // 等 DOM 和 Tauri 注入完成后初始化
+  if (document.readyState === 'complete') {
+    initTauri();
+  } else {
+    window.addEventListener('DOMContentLoaded', initTauri);
+  }
 </script>
 </body>
 </html>
