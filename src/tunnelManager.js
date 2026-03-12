@@ -306,15 +306,12 @@ export class TunnelManager extends EventEmitter {
         '--protocol', 'http2',
         '--no-tls-verify',
         '--no-autoupdate',
-        '--loglevel', 'debug',
+        '--loglevel', 'warn',
       ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
       // cloudflared 将隧道 URL 和调试日志输出到 stderr
       this._process.stderr.on('data', (chunk) => {
         const line = chunk.toString();
-
-        // 透传 cloudflared 内部日志到终端
-        process.stderr.write(`[cloudflared] ${line}`);
 
         const match = line.match(TUNNEL_URL_REGEX);
         if (match) {
