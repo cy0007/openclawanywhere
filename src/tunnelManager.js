@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { execa } from 'execa';
+import { spawn } from 'child_process';
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
@@ -278,14 +278,14 @@ export class TunnelManager extends EventEmitter {
     console.log(`[TunnelManager] 隧道目标地址：${localUrl}`);
 
     try {
-      this._process = execa(binaryPath, [
+      this._process = spawn(binaryPath, [
         'tunnel',
         '--url', localUrl,
         '--protocol', 'http2',
         '--no-tls-verify',
         '--no-autoupdate',
         '--loglevel', 'debug',
-      ]);
+      ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
       // cloudflared 将隧道 URL 和调试日志输出到 stderr
       this._process.stderr.on('data', (chunk) => {

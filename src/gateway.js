@@ -6,7 +6,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { nanoid } from 'nanoid';
+import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { AgentRunner } from './agentRunner.js';
@@ -23,7 +23,7 @@ const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fil
  * @returns {{ io: Server, httpServer: import('http').Server, sessionToken: string, agent: AgentRunner }}
  */
 export function startGateway(port, agentOpts = {}) {
-  const sessionToken = nanoid();
+  const sessionToken = crypto.randomUUID();
 
   const app = express();
 
