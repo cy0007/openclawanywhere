@@ -63,9 +63,7 @@
     }
   },
   "plugins": {
-    "autostart": {
-      "macOSLaunchAgent": true
-    },
+    "autostart": null,
     "shell": {
       "open": true
     }
