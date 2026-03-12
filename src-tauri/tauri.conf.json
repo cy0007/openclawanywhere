@@ -67,14 +67,7 @@
       "macOSLaunchAgent": true
     },
     "shell": {
-      "sidecar": true,
-      "scope": [
-        {
-          "name": "binaries/openclaw-gateway",
-          "sidecar": true,
-          "args": true
-        }
-      ]
+      "open": true
     }
   }
 }
