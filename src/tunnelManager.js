@@ -13,10 +13,10 @@ import os from 'os';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 
-const require = createRequire(import.meta.url);
-const tar = require('tar');
+const _require = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
+const tar = _require('tar');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * 获取本机内网 IPv4 地址（非 127.0.0.1）。
@@ -164,7 +164,7 @@ async function ensureCloudflared() {
   }
 
   // 开发环境：cloudflared 在项目根目录的 bin/ 下
-  const binDir = path.join(__dirname, '..', 'bin');
+  const binDir = path.join(_dirname, '..', 'bin');
   const binaryPath = path.join(binDir, getBinaryName());
 
   // 创建 bin 目录（若不存在）

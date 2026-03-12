@@ -9,7 +9,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Agent 输出流的状态：
@@ -28,7 +28,7 @@ export class AgentRunner extends EventEmitter {
     super();
     this._command = opts.command || 'python';
     this._args = opts.args || ['main.py'];
-    this._cwd = opts.cwd || path.join(__dirname, '..');
+    this._cwd = opts.cwd || path.join(_dirname, '..');
     this._process = null;
     this._outputBuffer = '';
   }
