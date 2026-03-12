@@ -304,9 +304,7 @@ export class TunnelManager extends EventEmitter {
         'tunnel',
         '--url', localUrl,
         '--protocol', 'http2',
-        '--no-tls-verify',
         '--no-autoupdate',
-        '--loglevel', 'warn',
       ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
       // cloudflared 将隧道 URL 和调试日志输出到 stderr
