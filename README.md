@@ -21,20 +21,18 @@
 
 ## 🚀 快速开始
 
-### 前提条件
+两种使用方式，选适合你的：
 
-- [Node.js](https://nodejs.org/) v18+
-- 一台已安装 OpenClaw 的电脑
+| | 桌面版 | 命令行版 |
+|---|---|---|
+| 需要 Node.js | ❌ 不需要 | ✅ 需要 v18+ |
+| cloudflared | 内置 | 首次运行自动下载 |
+| 开机自启 | 有开关 | 需自行配置 |
+| 适合 | 普通用户 | 开发者 |
 
-### 安装 & 启动
+---
 
-```bash
-git clone https://github.com/cy0007/openclawanywhere.git
-cd openclawanywhere
-npm install
-```
-
-#### 启动服务
+## 🖥️ 桌面版（推荐，零门槛）
 
 ```bash
 # 默认启动（python main.py）
@@ -68,9 +66,28 @@ AGENT_CMD=python AGENT_ARGS=main.py AGENT_CWD=/path/to/openclaw npm start
 
 ---
 
-## 🖥️ 桌面版（Tauri 打包）
+## 🖥️ 桌面版（推荐，零门槛）
 
-不想用命令行？我们提供桌面 App，双击即用。
+不想用命令行？下载安装包，双击即用。内置 cloudflared，无需安装 Node.js。
+
+### 📥 下载安装包
+
+前往 [GitHub Releases](https://github.com/cy0007/openclawanywhere/releases/latest) 下载对应平台的安装包：
+
+| 平台 | 文件 | 说明 |
+|------|------|------|
+| macOS (Apple Silicon) | `OpenClawAnywhere_x.x.x_aarch64.dmg` | M1/M2/M3/M4 芯片 |
+| macOS (Intel) | `OpenClawAnywhere_x.x.x_x64.dmg` | 2020 年前的 Mac |
+| Windows | `OpenClawAnywhere_x.x.x_x64-setup.exe` | 64 位 Windows 10+ |
+| Linux | `OpenClawAnywhere_x.x.x_amd64.deb` / `.AppImage` | Ubuntu / 通用 |
+
+安装后启动 App → 系统托盘出现 🐾 图标 → 终端弹出二维码 → 手机扫码连接。
+
+### 桌面版特性
+
+- 系统托盘静默运行
+- 开机自启开关（设置面板内）
+- cloudflared 内置，无需额外下载
 
 ### 从源码构建
 
@@ -80,18 +97,19 @@ npm install
 npm run release
 ```
 
-构建产物在 `src-tauri/target/release/bundle/` 下：
-- macOS → `.dmg`
-- Windows → `.msi` / `.exe`
-- Linux → `.deb` / `.AppImage`
-
-### 桌面版特性
-
-- 系统托盘静默运行
-- 开机自启开关
-- cloudflared 内置，无需额外下载
+构建产物在 `src-tauri/target/release/bundle/` 下。
 
 ---
+
+## 🚀 命令行启动（开发者）
+
+前提：[Node.js](https://nodejs.org/) v18+ 已安装。
+
+```bash
+git clone https://github.com/cy0007/openclawanywhere.git
+cd openclawanywhere
+npm install
+```
 
 ## 📁 项目结构
 
