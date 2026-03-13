@@ -295,8 +295,7 @@ export class TunnelManager extends EventEmitter {
 
     console.log(`[TunnelManager] 正在启动隧道，映射本地端口 ${LOCAL_PORT}...`);
 
-    const localHost = getLocalIPv4();
-    const localUrl = `http://${localHost}:${LOCAL_PORT}`;
+    const localUrl = `http://127.0.0.1:${LOCAL_PORT}`;
     console.log(`[TunnelManager] 隧道目标地址：${localUrl}`);
 
     try {
