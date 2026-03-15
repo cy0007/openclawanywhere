@@ -31,6 +31,8 @@ export class AgentRunner extends EventEmitter {
     this._cwd = opts.cwd || path.join(_dirname, '..');
     this._process = null;
     this._outputBuffer = '';
+    this._startedAt = null;       // 进程启动时间戳
+    this._restartCount = 0;       // 累计重启次数
   }
 
   /** 启动 Agent 子进程 */
@@ -79,6 +81,7 @@ export class AgentRunner extends EventEmitter {
     });
 
     this.emit('started');
+    this._startedAt = Date.now();
     console.log(`[AgentRunner] Agent 进程已启动，PID: ${this._process.pid}`);
   }
 
@@ -142,7 +145,68 @@ export class AgentRunner extends EventEmitter {
       proc.on('exit', () => clearTimeout(killTimer));
 
       this._process = null;
+      this._startedAt = null;
     }
+  }
+
+  /**
+   * 强制重启：SIGTERM → 2s 等待 → SIGKILL → 重新 start()
+   * 返回 Promise，resolve 时表示新进程已启动（或启动失败）。
+   */
+  forceRestart() {
+    this._restartCount++;
+    console.log(`[AgentRunner] 强制重启 (第 ${this._restartCount} 次)...`);
+
+    return new Promise((resolve) => {
+      if (!this._process) {
+        // 进程已经不在了，直接启动
+        this.start();
+        resolve(this.running);
+        return;
+      }
+
+      const proc = this._process;
+      let exited = false;
+
+      const onExit = () => {
+        exited = true;
+        clearTimeout(killTimer);
+        // 启动新进程
+        this.start();
+        resolve(this.running);
+      };
+
+      proc.once('exit', onExit);
+      proc.kill('SIGTERM');
+      this._process = null;
+      this._startedAt = null;
+
+      // 2 秒后如果还没退出，SIGKILL
+      const killTimer = setTimeout(() => {
+        if (!exited) {
+          try { proc.kill('SIGKILL'); } catch { /* ignore */ }
+        }
+      }, 2000);
+
+      // 兜底：3 秒后无论如何都启动新进程
+      setTimeout(() => {
+        if (!exited) {
+          proc.removeListener('exit', onExit);
+          this.start();
+          resolve(this.running);
+        }
+      }, 3000);
+    });
+  }
+
+  /** 获取当前状态快照 */
+  getStatus() {
+    return {
+      isAlive: this.running,
+      pid: this._process?.pid || null,
+      uptime: this._startedAt ? Math.floor((Date.now() - this._startedAt) / 1000) : 0,
+      restartCount: this._restartCount,
+    };
   }
 
   /** Agent 是否正在运行 */

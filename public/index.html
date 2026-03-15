@@ -55,10 +55,16 @@ ul, .answer-box ol { padding-left: 1.5em; margin-bottom: 0.5em; }
       <span class="text-base font-semibold">🐾 OpenClaw</span>
     </div>
     <div class="flex items-center gap-2 text-xs">
+      <span class="status-dot red" id="agentDot" title="Agent 状态"></span>
+      <span id="agentText" class="text-slate-400">Agent</span>
+      <span class="mx-1 text-slate-600">|</span>
       <span class="status-dot red" id="statusDot"></span>
       <span id="statusText" class="text-slate-400">未连接</span>
     </div>
   </header>
+
+  <!-- Toast 通知 -->
+  <div id="toastContainer" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 items-center pointer-events-none"></div>
 
   <!-- 聊天区域 -->
   <main id="chat-area" class="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-3">
@@ -67,6 +73,14 @@ ul, .answer-box ol { padding-left: 1.5em; margin-bottom: 0.5em; }
 
   <!-- 底部输入栏 -->
   <footer class="shrink-0 px-3 py-2 bg-slate-800/80 backdrop-blur border-t border-slate-700">
+    <!-- Agent 离线时显示重启按钮 -->
+    <div id="restartBar" class="hidden mb-2 flex items-center justify-center gap-2">
+      <span class="text-xs text-red-400">⚠️ AI 助手未运行</span>
+      <button id="restartBtn" onclick="doRestart()"
+        class="bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-full px-4 py-1.5 transition">
+        🔄 重启
+      </button>
+    </div>
     <form id="inputForm" class="flex gap-2">
       <input
         id="inputBox"
@@ -104,11 +118,17 @@ function scrollToBottom() {
 
 const statusDot  = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
+const agentDot   = document.getElementById('agentDot');
+const agentText  = document.getElementById('agentText');
+const restartBar = document.getElementById('restartBar');
+const restartBtn = document.getElementById('restartBtn');
 const chatArea   = document.getElementById('chat-area');
 const emptyHint  = document.getElementById('emptyHint');
 const inputForm  = document.getElementById('inputForm');
 const inputBox   = document.getElementById('inputBox');
 const sendBtn    = document.getElementById('sendBtn');
+
+let _socket = null; // 全局引用，供 doRestart 使用
 
 // ─── 状态管理 ──────────────────────────────────────────────────────────────
 
@@ -120,6 +140,44 @@ function setStatus(state) {
   const connected = state === 'green';
   inputBox.disabled = !connected;
   sendBtn.disabled  = !connected;
+}
+
+/** 更新 Agent 状态指示灯 */
+function setAgentStatus(status) {
+  const alive = status.isAlive;
+  agentDot.className = 'status-dot ' + (alive ? 'green' : 'red');
+
+  if (alive) {
+    const m = Math.floor(status.uptime / 60);
+    const s = status.uptime % 60;
+    agentText.textContent = `Agent ${m}m${s}s`;
+    restartBar.classList.add('hidden');
+  } else {
+    agentText.textContent = 'Agent 离线';
+    restartBar.classList.remove('hidden');
+  }
+}
+
+/** 显示 Toast 通知 */
+function showToast(message, type) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600' };
+  toast.className = `${colors[type] || 'bg-slate-600'} text-white text-sm px-4 py-2 rounded-lg shadow-lg pointer-events-auto`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; }, 3000);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+/** 手动重启 Agent */
+function doRestart() {
+  if (!_socket) return;
+  restartBtn.disabled = true;
+  restartBtn.textContent = '⏳ 重启中...';
+  _socket.emit('manual_restart');
+  // 按钮状态会在收到 agent_status 后恢复
+  setTimeout(() => { restartBtn.disabled = false; restartBtn.textContent = '🔄 重启'; }, 10000);
 }
 
 // ─── 消息渲染 ──────────────────────────────────────────────────────────────
@@ -257,6 +315,8 @@ if (!token) {
     reconnectionDelayMax: 10000,
   });
 
+  _socket = socket;
+
   socket.on('connect', () => {
     console.log('[WS] 已连接', socket.id);
   });
@@ -265,6 +325,16 @@ if (!token) {
     setStatus('green');
     emptyHint.textContent = '✅ 已连接，可以开始对话。';
     console.log('[WS] 握手成功', data);
+  });
+
+  // ── 金三角守护协议：Agent 状态 + Toast ──
+
+  socket.on('agent_status', (status) => {
+    setAgentStatus(status);
+  });
+
+  socket.on('toast', (data) => {
+    showToast(data.message, data.type);
   });
 
   socket.on('disconnect', (reason) => {

@@ -69,9 +69,40 @@ export function startGateway(port, agentOpts = {}) {
 
   const agent = new AgentRunner(agentOpts);
 
-  // Agent 退出时通知所有已连接的客户端
+  // ─── 金三角守护协议 ──────────────────────────────────────────────────
+
+  // 1. 心跳监测：每 5 秒广播 Agent 状态
+  const heartbeatTimer = setInterval(() => {
+    io.emit('agent_status', agent.getStatus());
+  }, 5000);
+
+  // 2. 自动自愈：Agent 退出时自动重启
+  let autoHealEnabled = true;
+
   agent.on('exit', ({ code, signal }) => {
+    io.emit('agent_status', agent.getStatus());
     io.emit('agent_error', { text: `Agent 已退出 (code=${code}, signal=${signal})` });
+
+    if (autoHealEnabled) {
+      console.log('[Guardian] 检测到 Agent 退出，3 秒后自动重启...');
+      setTimeout(async () => {
+        await agent.forceRestart();
+        const status = agent.getStatus();
+        io.emit('agent_status', status);
+        if (status.isAlive) {
+          io.emit('toast', { message: '检测到异常，已成功为您重启 AI 助手。', type: 'success' });
+          console.log('[Guardian] 自动自愈成功');
+        } else {
+          io.emit('toast', { message: 'AI 助手重启失败，请手动重试。', type: 'error' });
+          console.error('[Guardian] 自动自愈失败');
+        }
+      }, 3000);
+    }
+  });
+
+  // Agent 启动成功时广播状态
+  agent.on('started', () => {
+    io.emit('agent_status', agent.getStatus());
   });
 
   // 启动 Agent
@@ -87,12 +118,13 @@ export function startGateway(port, agentOpts = {}) {
   io.on('connection', (socket) => {
     console.log(`[Gateway] 新客户端已连接：${socket.id}`);
 
-    // 通知移动端连接成功
+    // 通知移动端连接成功 + 立即推送 Agent 状态
     socket.emit('connection_success', {
       message: '已连接到 OpenClawAnywhere 宿主端',
       timestamp: Date.now(),
       agentRunning: agent.running,
     });
+    socket.emit('agent_status', agent.getStatus());
 
     // ── Agent 输出 → 前端流式推送 ──
 
@@ -122,6 +154,26 @@ export function startGateway(port, agentOpts = {}) {
           socket.emit('agent_error', { text: 'Agent 未运行，请检查宿主端。' });
         }
         return;
+      }
+    });
+
+    // ── 3. 手动强制重启 (The Kill Switch) ──
+
+    socket.on('manual_restart', async () => {
+      console.log(`[Guardian] 收到手动重启指令，来自 ${socket.id}`);
+      socket.emit('toast', { message: '正在重启 AI 助手...', type: 'info' });
+
+      autoHealEnabled = false; // 暂停自愈，避免重复触发
+      const success = await agent.forceRestart();
+      autoHealEnabled = true;
+
+      const status = agent.getStatus();
+      io.emit('agent_status', status);
+
+      if (success) {
+        io.emit('toast', { message: 'AI 助手已成功重启。', type: 'success' });
+      } else {
+        io.emit('toast', { message: 'AI 助手重启失败。', type: 'error' });
       }
     });
 
