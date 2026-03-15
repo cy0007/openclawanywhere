@@ -83,6 +83,19 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      # ── 同步版本号：从 git tag 提取并写入配置文件 ──
+      - name: Sync version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "Syncing version: $VERSION"
+          # package.json
+          node -e "const f='package.json';const p=JSON.parse(require('fs').readFileSync(f));p.version='$VERSION';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+          # tauri.conf.json
+          node -e "const f='src-tauri/tauri.conf.json';const p=JSON.parse(require('fs').readFileSync(f));p.version='$VERSION';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+          # Cargo.toml
+          sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml && rm -f src-tauri/Cargo.toml.bak
+
       # ── pkg (Node.js → 单文件二进制) ──
       - name: Install pkg
         run: npm install -g @yao-pkg/pkg
